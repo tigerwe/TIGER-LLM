@@ -1,0 +1,128 @@
+version: '3.8'
+
+services:
+  # TIGER-LLM Inference Server
+  tiger-llm-server:
+    build:
+      context: ..
+      dockerfile: triton_server/Dockerfile
+    image: tiger-llm:inference-v1.0
+    container_name: tiger-llm-inference
+    
+    # GPU 支持
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    # 端口映射
+    ports:
+      - "8000:8000"
+    
+    # 环境变量
+    environment:
+      # 模型配置
+      - TRT_ENGINE_DIR=/app/triton_server/trt_engines
+      - MAX_BATCH_SIZE=64
+      - BEAM_WIDTH=20
+      - USE_TRT=true
+      
+      # CUDA 配置
+      - CUDA_VISIBLE_DEVICES=0
+      - NVIDIA_VISIBLE_DEVICES=all
+      
+      # Python 配置
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    
+    # 卷映射
+    volumes:
+      # 模型文件
+      - ../model/ckpt:/app/model/ckpt:ro
+      # RQVAE codes
+      - ../data/Tenrec:/app/data/Tenrec:ro
+      # TensorRT 引擎（可读写）
+      - ./trt_engines:/app/triton_server/trt_engines
+      # 日志
+      - ./logs:/app/logs
+    
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # 重启策略
+    restart: unless-stopped
+    
+    # 日志配置
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # (可选) Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: tiger-llm-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      tiger-llm-server:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - with-nginx
+
+  # (可选) Prometheus 监控
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: tiger-llm-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    profiles:
+      - monitoring
+
+  # (可选) Grafana 可视化
+  grafana:
+    image: grafana/grafana:latest
+    container_name: tiger-llm-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    profiles:
+      - monitoring
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: tiger-llm-network
