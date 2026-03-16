@@ -71,7 +71,7 @@ class VectorQuantizer(nn.Module):
         d = torch.sum(latent**2, dim=1, keepdim=True) + \
             torch.sum(self.embedding.weight**2, dim=1, keepdim=True).t()- \
             2 * torch.matmul(latent, self.embedding.weight.t())
-        if not use_sk or self.sk_epsilon <= 0:
+        if not use_sk or self.sk_epsilon is None or self.sk_epsilon <= 0:
             indices = torch.argmin(d, dim=-1)
         else:
             d = self.center_distance_for_constraint(d)

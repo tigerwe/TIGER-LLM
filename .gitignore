@@ -192,3 +192,13 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+# Model checkpoints and data
+*.pth
+*.parquet
+*.npy
+*.gz
+data/Tenrec/
+rqvae/ckpt/
+model/ckpt/
+*.log
+nohup.out

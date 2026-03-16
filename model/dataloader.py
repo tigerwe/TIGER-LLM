@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 class GenRecDataLoader(DataLoader):
@@ -34,16 +35,31 @@ class GenRecDataLoader(DataLoader):
         targets = [item['target'] for item in batch]
 
         # Flatten histories and targets
-        flattened_histories = torch.stack(
-            [torch.tensor([elem for sublist in history for elem in sublist], dtype=torch.int64) for history in histories]
-        )
-        flattened_targets = torch.stack(
-            [torch.tensor(target, dtype=torch.int64) for target in targets]
-        )
+        flattened_histories_list = [
+            torch.tensor([elem for sublist in history for elem in sublist], dtype=torch.int64) 
+            for history in histories
+        ]
+        flattened_targets_list = [
+            torch.tensor(target, dtype=torch.int64) for target in targets
+        ]
+
+        # Pad sequences to the same length
+        max_hist_len = max(len(h) for h in flattened_histories_list)
+        padded_histories = torch.stack([
+            F.pad(h, (max_hist_len - len(h), 0), value=pad_token) 
+            for h in flattened_histories_list
+        ])
+
+        max_target_len = max(len(t) for t in flattened_targets_list)
+        padded_targets = torch.stack([
+            F.pad(t, (max_target_len - len(t), 0), value=pad_token) 
+            for t in flattened_targets_list
+        ])
 
         # Create attention masks for flattened histories
-        attention_masks = torch.stack(
-            [torch.tensor([1 if elem != pad_token else 0 for elem in h], dtype=torch.int64) for h in flattened_histories]
-        )
+        attention_masks = torch.stack([
+            torch.tensor([1 if elem != pad_token else 0 for elem in h], dtype=torch.int64) 
+            for h in padded_histories
+        ])
 
-        return {'history': flattened_histories, 'target': flattened_targets, 'attention_mask': attention_masks}
+        return {'history': padded_histories, 'target': padded_targets, 'attention_mask': attention_masks}

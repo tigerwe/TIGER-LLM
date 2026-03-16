@@ -197,7 +197,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_heads', type=int, default=6, help='Number of attention heads')
     parser.add_argument('--d_kv', type=int, default=64, help='Dimension of key and value vectors')
     parser.add_argument('--dropout_rate', type=float, default=0.1, help='Dropout rate')
-    parser.add_argument('--vocab_size', type=int, default=1025, help='Vocabulary size')
+    parser.add_argument('--vocab_size', type=int, default=1281, help='Vocabulary size')
     parser.add_argument('--pad_token_id', type=int, default=0, help='Padding token ID')
     parser.add_argument('--eos_token_id', type=int, default=0, help='End of sequence token ID')
     parser.add_argument('--feed_forward_proj', type=str, default='relu', help='Feed forward projection type')
